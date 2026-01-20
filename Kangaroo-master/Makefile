@@ -40,9 +40,16 @@ OBJET = $(addprefix $(OBJDIR)/, \
 endif
 
 CXX        = g++
-CUDA       = /usr/local/cuda-8.0
-CXXCUDA    = /usr/bin/g++-4.8
-NVCC       = $(CUDA)/bin/nvcc
+# CUDA settings (override from command line if needed, e.g. `make gpu=1 CUDA=/usr/local/cuda ...`)
+CUDA       ?= /usr/local/cuda
+# CUDA include/lib dirs (handles conda CUDA layouts like /opt/conda/{include,lib})
+CUDA_INC   ?= $(CUDA)/include
+CUDA_LIB64 := $(wildcard $(CUDA)/lib64)
+CUDA_LIB   := $(wildcard $(CUDA)/lib)
+CUDA_LIBDIR ?= $(if $(CUDA_LIB64),$(CUDA)/lib64,$(CUDA)/lib)
+# Host compiler used by nvcc (override if you need a specific gcc version)
+CXXCUDA    ?= $(CXX)
+NVCC       ?= $(CUDA)/bin/nvcc
 
 UNAME_S    := $(shell uname -s)
 UNAME_M    := $(shell uname -m)
@@ -56,11 +63,11 @@ endif
 ifdef gpu
 
 ifdef debug
-CXXFLAGS   = -DWITHGPU $(ARCHFLAGS) -Wno-unused-result -Wno-write-strings -g -I. -I$(CUDA)/include
+CXXFLAGS   = -DWITHGPU $(ARCHFLAGS) -Wno-unused-result -Wno-write-strings -g -I. -I$(CUDA_INC)
 else
-CXXFLAGS   = -DWITHGPU $(ARCHFLAGS) -Wno-unused-result -Wno-write-strings -O2 -I. -I$(CUDA)/include
+CXXFLAGS   = -DWITHGPU $(ARCHFLAGS) -Wno-unused-result -Wno-write-strings -O2 -I. -I$(CUDA_INC)
 endif
-LFLAGS     = -lpthread -L$(CUDA)/lib64 -lcudart
+LFLAGS     = -lpthread -L$(CUDA_LIBDIR) -lcudart
 
 else
 
@@ -78,10 +85,10 @@ endif
 ifdef gpu
 ifdef debug
 $(OBJDIR)/GPU/GPUEngine.o: GPU/GPUEngine.cu
-	$(NVCC) -G -maxrregcount=0 --ptxas-options=-v --compile --compiler-options -fPIC -ccbin $(CXXCUDA) -m64 -g -I$(CUDA)/include -gencode=arch=compute_$(ccap),code=sm_$(ccap) -o $(OBJDIR)/GPU/GPUEngine.o -c GPU/GPUEngine.cu
+	$(NVCC) -G -maxrregcount=0 --ptxas-options=-v --compile --compiler-options -fPIC -ccbin $(CXXCUDA) -m64 -g -I$(CUDA_INC) -gencode=arch=compute_$(ccap),code=sm_$(ccap) -o $(OBJDIR)/GPU/GPUEngine.o -c GPU/GPUEngine.cu
 else
 $(OBJDIR)/GPU/GPUEngine.o: GPU/GPUEngine.cu
-	$(NVCC) -maxrregcount=0 --ptxas-options=-v --compile --compiler-options -fPIC -ccbin $(CXXCUDA) -m64 -O2 -I$(CUDA)/include -gencode=arch=compute_$(ccap),code=sm_$(ccap) -o $(OBJDIR)/GPU/GPUEngine.o -c GPU/GPUEngine.cu
+	$(NVCC) -maxrregcount=0 --ptxas-options=-v --compile --compiler-options -fPIC -ccbin $(CXXCUDA) -m64 -O2 -I$(CUDA_INC) -gencode=arch=compute_$(ccap),code=sm_$(ccap) -o $(OBJDIR)/GPU/GPUEngine.o -c GPU/GPUEngine.cu
 endif
 endif
 
@@ -110,4 +117,5 @@ clean:
 	@rm -f obj/*.o
 	@rm -f obj/GPU/*.o
 	@rm -f obj/SECPK1/*.o
+
 
