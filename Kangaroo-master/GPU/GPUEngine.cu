@@ -1,3 +1,4 @@
+
 /*
 * This file is part of the BTCCollider distribution (https://github.com/JeanLucPons/Kangaroo).
 * Copyright (c) 2020 Jean Luc PONS.
@@ -258,14 +259,12 @@ void GPUEngine::PrintCudaInfo() {
 
   cudaError_t err;
 
-  const char *sComputeMode[] =
-  {
-    "Multiple host threads",
-    "Only one host thread",
-    "No host thread",
-    "Multiple process threads",
-    "Unknown",
-    NULL
+  const char *sComputeMode[] = {
+    "Default",
+    "Exclusive",
+    "Prohibited",
+    "Exclusive Process",
+    "Unknown"
   };
 
   int deviceCount = 0;
@@ -292,11 +291,20 @@ void GPUEngine::PrintCudaInfo() {
 
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp,i);
+
+    // CUDA 13+ compatibility: cudaDeviceProp no longer exposes computeMode in some headers.
+    int computeMode = -1;
+    cudaError_t cmErr = cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode, i);
+    const char *cmStr = sComputeMode[4];
+    if(cmErr == cudaSuccess && computeMode >= 0 && computeMode <= 3) {
+      cmStr = sComputeMode[computeMode];
+    }
+
     printf("GPU #%d %s (%dx%d cores) (Cap %d.%d) (%.1f MB) (%s)\n",
       i,deviceProp.name,deviceProp.multiProcessorCount,
       _ConvertSMVer2Cores(deviceProp.major,deviceProp.minor),
       deviceProp.major,deviceProp.minor,(double)deviceProp.totalGlobalMem / 1048576.0,
-      sComputeMode[deviceProp.computeMode]);
+      cmStr);
 
   }
 
